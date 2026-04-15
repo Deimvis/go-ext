@@ -7,11 +7,11 @@ on:
     branches: [main]
 
 jobs:
-  test:
+  go1_25-test:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        go-version: ["1.25.x"]
+        go-version: ["1.25.1"]
     steps:
       - uses: actions/checkout@v4
 
