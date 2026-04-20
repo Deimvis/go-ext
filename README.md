@@ -2,7 +2,13 @@
 
 Extended Golang Library is an extension for standard golang library.
 
-## Best stuff
+## Installation
+
+```bash
+go get https://github.com/Deimvis/go-ext/go1.25
+```
+
+## Examples
 
 #### `xmust` — panic-on-failure checks
 
