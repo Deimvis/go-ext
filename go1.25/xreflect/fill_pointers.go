@@ -3,9 +3,18 @@ package xreflect
 import (
 	"reflect"
 
+	"github.com/Deimvis/go-ext/go1.25/xcheck"
 	"github.com/Deimvis/go-ext/go1.25/xcheck/xinvar"
 	"github.com/Deimvis/go-ext/go1.25/xcheck/xmust"
 )
+
+// TODO: consider renaming to FillNilFieldPointers, or somehow canonizing.
+// * opt) FillFields(v, xreflect.NilPtr)
+//        FillFields(v, xreflect.NilStructPtr)
+// * opt) FillNilPtrFields(v) + FillNilStructPtrFields(v)
+// * opt) FillNilPtrFields(v, xreflectfill.OnlyStructPtrs)
+// * opt) FillNilPointers, but make work with slices and other containers, but make work with filters (only struct pointers)
+// * opt) FillNils(v, Pointers, Slices, Maps) // works with input container or struct, checks CanAddr; by default fills any nils (except interfaces)
 
 // FillNilPointers recursively fills nil pointers with pointers to
 // default value of the underlying type.
@@ -16,7 +25,7 @@ func FillNilPointers(s any) {
 	opts := fillNilPointersOptions{
 		onlyStructPtrs: false,
 	}
-	fillNilPointers(s, opts)
+	fillNilPointers(reflect.ValueOf(s), opts)
 }
 
 // FillNilStructPointers works same as FillNilPointers,
@@ -25,24 +34,20 @@ func FillNilStructPointers(s any) {
 	opts := fillNilPointersOptions{
 		onlyStructPtrs: true,
 	}
-	fillNilPointers(s, opts)
+	fillNilPointers(reflect.ValueOf(s), opts)
 }
 
-func fillNilPointers(s any, opts fillNilPointersOptions) {
-	v := reflect.ValueOf(s)
+func fillNilPointers(v reflect.Value, opts fillNilPointersOptions) {
+	// TODO: actually check CanAddr ?
 	xmust.Eq(v.Kind(), reflect.Pointer)
 	xmust.True(!v.IsNil())
-	if v.Elem().Kind() == reflect.Pointer {
-		structType := v.Elem().Type().Elem()
-		xmust.Eq(structType.Kind(), reflect.Struct, "got **<non-struct> (pointer to a pointer to not struct)")
+	for v.Elem().Kind() == reflect.Pointer {
 		if v.Elem().IsNil() {
-			newStruct := reflect.New(structType)
-			v.Elem().Set(newStruct)
+			v.Elem().Set(reflect.New(v.Elem().Type().Elem()))
 		}
 		v = v.Elem()
-		xinvar.Eq(v.Elem().Kind(), reflect.Struct)
 	}
-	xmust.Eq(v.Elem().Kind(), reflect.Struct, "got neither *<struct> nor **<struct>")
+	xmust.Eq(v.Elem().Kind(), reflect.Struct, "input kind", xcheck.PrintValues)
 	fillPointerFields(v.Elem(), opts)
 }
 
@@ -98,36 +103,4 @@ func fillPointerFields(v reflect.Value, opts fillNilPointersOptions) {
 
 type fillNilPointersOptions struct {
 	onlyStructPtrs bool
-}
-
-// resolve recursively resolves pointers and interfaces to their underlying value.
-// https://github.com/go-playground/validator/blob/a947377040f8ebaee09f20d09a745ec369396793/util.go#L15
-func resolve(v reflect.Value) reflect.Value {
-
-BEGIN:
-	switch v.Kind() {
-	case reflect.Pointer:
-
-		if v.IsNil() {
-			return v
-		}
-
-		v = v.Elem()
-		goto BEGIN
-
-	case reflect.Interface:
-
-		if v.IsNil() {
-			return v
-		}
-
-		v = v.Elem()
-		goto BEGIN
-
-	case reflect.Invalid:
-		return v
-
-	default:
-		return v
-	}
 }

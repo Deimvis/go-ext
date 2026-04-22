@@ -67,6 +67,38 @@ func TestFillNilPointers(t *testing.T) {
 		require.NotNil(t, v.U.I)
 		require.Equal(t, zeroInt, *v.U.I)
 	})
+	t.Run("pointer-to-pointer-to-struct-nil-inner", func(t *testing.T) {
+		type T struct {
+			I *int
+		}
+		var v *T
+		xreflect.FillNilPointers(&v)
+		require.NotNil(t, v)
+		require.NotNil(t, v.I)
+		require.Equal(t, zeroInt, *v.I)
+	})
+	t.Run("pointer-to-pointer-to-struct-non-nil-inner", func(t *testing.T) {
+		type T struct {
+			I *int
+		}
+		inner := &T{}
+		v := &inner
+		xreflect.FillNilPointers(v)
+		require.Same(t, inner, *v)
+		require.NotNil(t, inner.I)
+		require.Equal(t, zeroInt, *inner.I)
+	})
+	t.Run("triple-pointer-to-struct-all-nil", func(t *testing.T) {
+		type T struct {
+			I *int
+		}
+		var v **T
+		xreflect.FillNilPointers(&v)
+		require.NotNil(t, v)
+		require.NotNil(t, *v)
+		require.NotNil(t, (*v).I)
+		require.Equal(t, zeroInt, *(*v).I)
+	})
 }
 
 func TestFillNilStructPointers(t *testing.T) {
@@ -92,6 +124,18 @@ func TestFillNilStructPointers(t *testing.T) {
 		require.Nil(t, v.I)
 		require.NotNil(t, v.U)
 		require.Nil(t, v.U.I)
+	})
+	t.Run("pointer-to-pointer-to-struct-nil-inner", func(t *testing.T) {
+		type T struct {
+			I *int
+			U *struct{ X *int }
+		}
+		var v *T
+		xreflect.FillNilStructPointers(&v)
+		require.NotNil(t, v)
+		require.Nil(t, v.I)
+		require.NotNil(t, v.U)
+		require.Nil(t, v.U.X)
 	})
 }
 
