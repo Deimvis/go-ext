@@ -14,20 +14,23 @@ import (
 // TODO: EqAny (or AnyOf+pred?)
 
 // NoErr checks whether err != nil and does nothing otherwise.
-func NoErr(err error, msgAndArgsAndOpts ...any) (bool, string) {
+func NoErr(err error, msgAndArgsAndOpts ...any) (bool, error) {
 	_validateMsg(msgAndArgsAndOpts...)
 	if err != nil {
-		pcfg := printConfig{
-			defaultBaseMsg: "err != nil",
-			fmtValues: func() string {
-				return err.Error()
-			},
-			showValues: true,
-		}
-		msg := FormatMsg(pcfg, msgAndArgsAndOpts...)
-		return false, msg
+		// TODO: return formatting,
+		// but use %w for preserving original error
+		return false, err
+		// pcfg := printConfig{
+		// 	defaultBaseMsg: "err != nil",
+		// 	fmtValues: func() string {
+		// 		return err.Error()
+		// 	},
+		// 	showValues: true,
+		// }
+		// msg := FormatMsg(pcfg, msgAndArgsAndOpts...)
+		// return false, msg
 	}
-	return true, ""
+	return true, nil
 }
 
 // True checks whether v != true and does nothing otherwise.

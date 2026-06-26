@@ -14,7 +14,7 @@ import (
 // NoErr fails fast if err != nil and does nothing otherwise.
 // Format string from msgAndArgs must contain last %s for error.
 func NoErr(err error, msgAndArgs ...interface{}) {
-	impl(core.NoErr(err, msgAndArgs...))
+	implErr(core.NoErr(err, msgAndArgs...))
 }
 
 // True fails fast if v != true and does nothing otherwise.
@@ -91,6 +91,12 @@ func TypeImplements[T any, I any](msgAndArgs ...interface{}) {
 func impl(ok bool, errMsg string) {
 	if !ok {
 		exitFn(errMsg)
+	}
+}
+
+func implErr(ok bool, err error) {
+	if !ok {
+		exitFn(err.Error())
 	}
 }
 

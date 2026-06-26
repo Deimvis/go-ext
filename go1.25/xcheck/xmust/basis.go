@@ -8,7 +8,7 @@ import (
 )
 
 func NoErr(err error, msgAndArgs ...interface{}) {
-	impl(core.NoErr(err, msgAndArgs...))
+	implErr(core.NoErr(err, msgAndArgs...))
 }
 
 func True(v bool, msgAndArgs ...interface{}) {
@@ -86,5 +86,11 @@ func TypeImplements[T any, I any](msgAndArgs ...interface{}) {
 func impl(ok bool, errMsg string) {
 	if !ok {
 		panic(errors.New(errMsg))
+	}
+}
+
+func implErr(ok bool, err error) {
+	if !ok {
+		panic(err)
 	}
 }

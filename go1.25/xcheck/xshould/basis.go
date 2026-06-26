@@ -8,7 +8,7 @@ import (
 )
 
 func NoErr(err error, msgAndArgs ...interface{}) error {
-	return impl(core.NoErr(err, msgAndArgs...))
+	return implErr(core.NoErr(err, msgAndArgs...))
 }
 
 func True(v bool, msgAndArgs ...interface{}) error {
@@ -86,6 +86,13 @@ func TypeImplements[T any, I any](msgAndArgs ...interface{}) error {
 func impl(ok bool, errMsg string) error {
 	if !ok {
 		return errors.New(errMsg)
+	}
+	return nil
+}
+
+func implErr(ok bool, err error) error {
+	if !ok {
+		return err
 	}
 	return nil
 }
