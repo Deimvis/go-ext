@@ -1,6 +1,10 @@
 package xwrapcall
 
-import "errors"
+import (
+	"errors"
+
+	"github.com/Deimvis/go-ext/go1.25/xchaincall/xwrapcallctx"
+)
 
 type EarlyReturnAction[CtxT Context] func(EarlyReturnInfo[CtxT]) (CtxT, error)
 
@@ -27,10 +31,10 @@ func earlyReturnAction_default[CtxT Context](info EarlyReturnInfo[CtxT]) (CtxT, 
 		// Any early return is assumed as abort by default.
 		// So we call Abort() if middleware didn't.
 		if !ac.Aborted() {
-			ac.Abort(WithReason("middleware has not called neither next nor context's Abort()"), WithFields(
-				Field{"mw_ind", info.StackIndex()},
-				Field{"mw_func", getFuncFullname(info.Middleware())},
-				Field{"mw_err", err.Error()},
+			ac.Abort(xwrapcallctx.AbortWithReason("middleware has not called neither next nor context's Abort()"), xwrapcallctx.AbortWithFields(
+				xwrapcallctx.Field{"mw_ind", info.StackIndex()},
+				xwrapcallctx.Field{"mw_func", getFuncFullname(info.Middleware())},
+				xwrapcallctx.Field{"mw_err", err.Error()},
 				// TODO: add callstack of middlewares to fields (mw1 -> mw2 -> hasn't call next + call stack if given)
 				// TODO: allow to customize which fields are added here
 			))

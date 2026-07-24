@@ -6,6 +6,7 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/Deimvis/go-ext/go1.25/xchaincall/xwrapcallctx"
 	"github.com/stretchr/testify/require"
 )
 
@@ -139,7 +140,7 @@ func TestNew(t *testing.T) {
 						return c, err
 					},
 					func(c AbortableContext, next Next[AbortableContext]) (AbortableContext, error) {
-						c.Abort(WithReason(reason))
+						c.Abort(xwrapcallctx.AbortWithReason(reason))
 						return c, nil
 					},
 				).
@@ -222,7 +223,7 @@ func TestNew(t *testing.T) {
 	t.Run("abortable-ctx-action-abort", func(t *testing.T) {
 		reason := "action aborted"
 		fn := func(c AbortableContext) error {
-			c.Abort(WithReason(reason))
+			c.Abort(xwrapcallctx.AbortWithReason(reason))
 			return nil
 		}
 		fn = New[AbortableContext]().
@@ -244,7 +245,7 @@ func TestNew(t *testing.T) {
 		fn = New[AbortableContext]().
 			With(
 				func(c AbortableContext, next Next[AbortableContext]) (retC AbortableContext, retErr error) {
-					c.Abort(WithReason(reason))
+					c.Abort(xwrapcallctx.AbortWithReason(reason))
 					defer func() {
 						r := recover()
 						require.NotNil(t, r)
@@ -274,7 +275,7 @@ type actx struct {
 	abortInfo *abortInfo
 }
 
-func (c *actx) Abort(opts ...AbortOption) {
+func (c *actx) Abort(opts ...xwrapcallctx.AbortOption) {
 	c.aborted = true
 	for _, opt := range opts {
 		opt(c.abortInfo)
@@ -285,16 +286,16 @@ func (c *actx) Aborted() bool {
 	return c.aborted
 }
 
-func (c *actx) AbortInfo() AbortInfo {
+func (c *actx) AbortInfo() xwrapcallctx.AbortInfo {
 	return c.abortInfo
 }
 
 type abortInfo struct {
 	reason string
-	fields []Field
+	fields []xwrapcallctx.Field
 }
 
-var _ AbortInfoMutable = &abortInfo{}
+var _ xwrapcallctx.AbortInfoMutable = &abortInfo{}
 
 func (i *abortInfo) Reason() string {
 	return i.reason
@@ -304,11 +305,11 @@ func (i *abortInfo) SetReason(r string) {
 	i.reason = r
 }
 
-func (i *abortInfo) Fields() []Field {
+func (i *abortInfo) Fields() []xwrapcallctx.Field {
 	return i.fields
 }
 
-func (i *abortInfo) SetFields(fields ...Field) {
+func (i *abortInfo) SetFields(fields ...xwrapcallctx.Field) {
 	i.fields = fields
 }
 

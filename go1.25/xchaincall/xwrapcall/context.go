@@ -1,10 +1,8 @@
 package xwrapcall
 
-import "context"
+import "github.com/Deimvis/go-ext/go1.25/xchaincall/xwrapcallctx"
 
-type Context interface {
-	context.Context
-}
+type Context = xwrapcallctx.Context
 
 // CopyableContext adds ability to
 // access context.Context directly
@@ -12,11 +10,7 @@ type Context interface {
 //
 // CopyableContext is required for
 // injecting Runtime info.
-type CopyableContext[Self any] interface {
-	context.Context
-	StdContext() context.Context
-	CopyOnto(context.Context) Self
-}
+type CopyableContext[Self any] = xwrapcallctx.WithCopying[Self]
 
 // AbortableContext adds new semantic state for call.
 // With Context the only state available is either
@@ -40,39 +34,4 @@ type CopyableContext[Self any] interface {
 // - Expected error occured while doing work (e.g. work is only partially completed): error, no abort
 // - Expected reason why work should not be done (e.g. idempotent call and work is alredy done): no error, abort
 // - Unexpected, uncontrollable error occured: panic
-type AbortableContext interface {
-	Context
-	// TODO: support multiple Aborts? Concurrent aborts? Enriching AbortInfo?
-	Abort(...AbortOption)
-	Aborted() bool
-	AbortInfo() AbortInfo
-}
-
-// TODO: implement BaseContext which users can embed in their custom context impl
-// (maybe xwrapcallctx.Base)
-
-type AbortInfoMutable interface {
-	AbortInfo
-	SetReason(string)
-	SetFields(...Field)
-}
-
-type AbortInfo interface {
-	Reason() string
-	Fields() []Field
-}
-
-type Field struct {
-	Key   string
-	Value any
-}
-
-func isCopyableContext[CtxT Context]() bool {
-	return implements[CtxT, CopyableContext[CtxT]]()
-}
-
-func implements[T any, I any]() bool {
-	var c T
-	_, ok := any(c).(I)
-	return ok
-}
+type AbortableContext = xwrapcallctx.WithAbort
