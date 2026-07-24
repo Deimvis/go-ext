@@ -6,13 +6,11 @@ import (
 	"sync"
 )
 
-// TODO: debug, add Gate (knows who passed through, but always open)
-
 func NewBarrier() (BarrierParker, BarrierGuard) {
 	b := &barrier{}
 	b.parkCond = sync.NewCond(&b.parkMu)
 	b.waiters = nil
-	b.closed = false
+	b.disabled = false
 	return &barrierParker{b}, &barrierGuard{b}
 }
 
@@ -38,19 +36,19 @@ type BarrierGuardBasis interface {
 	// PassFn(pred) int
 	// UPD: better naming: Flush & FlushHavingTags
 
-	// Close flushes parked units
-	// and any future or not-finished
-	// Park, Wait, Pass calls
+	// Disable flushes parked units
+	// and returns their count.
+	// Any subsequent Park calls
+	// will be no-op until barrier is enabled again.
+	// And subsequent Wait, Pass calls
 	// will panic.
-	Close() int
+	Disable() int
+	// Enable enables barrier.
+	// If barrier is not disabled, it is no-op.
+	Enable()
 }
 
-// BarrierGuard implements wait-inspect-pass loop.
-type BarrierGuard interface {
-	BarrierGuardBasis
-
-	// -- sugar (shortcuts) --
-
+type barrierGuardSugar interface {
 	WaitOne()
 	WaitN(count int)
 
@@ -62,6 +60,14 @@ type BarrierGuard interface {
 
 	PassOne()
 	PassN(count int)
+
+	// NOTE: maybe add Flush <=> PassN(CountAll())
+}
+
+// BarrierGuard implements wait-inspect-pass loop.
+type BarrierGuard interface {
+	BarrierGuardBasis
+	barrierGuardSugar
 }
 
 type barrierParker struct {
@@ -79,15 +85,19 @@ func (bp *barrierParker) Park(tags ...any) {
 	}
 	w := &waiter{tags: tags, release: make(chan struct{})}
 
-	func() {
+	enqueued := func() bool {
 		bp.b.parkMu.Lock()
 		defer bp.b.parkMu.Unlock()
-		if bp.b.closed {
-			panic("xtesting: barrier is closed")
+		if bp.b.disabled {
+			return false
 		}
 		bp.b.waiters = append(bp.b.waiters, w)
 		bp.b.parkCond.Broadcast()
+		return true
 	}()
+	if !enqueued {
+		return
+	}
 
 	<-w.release
 }
@@ -101,11 +111,11 @@ var _ BarrierGuard = (*barrierGuard)(nil)
 func (bg *barrierGuard) Wait(pred func(tags []any) bool, count int) {
 	bg.b.parkMu.Lock()
 	defer bg.b.parkMu.Unlock()
-	for !bg.b.closed && bg.count_locked(pred) < count {
+	for !bg.b.disabled && bg.count_locked(pred) < count {
 		bg.b.parkCond.Wait()
 	}
-	if bg.b.closed {
-		panic("xtesting: barrier is closed")
+	if bg.b.disabled {
+		panic("barrier is disabled")
 	}
 }
 
@@ -164,11 +174,11 @@ func (bg *barrierGuard) CountAll() int {
 func (bg *barrierGuard) Pass(pred func(tags []any) bool, count int) {
 	bg.b.parkMu.Lock()
 	defer bg.b.parkMu.Unlock()
-	for !bg.b.closed && bg.count_locked(pred) < count {
+	for !bg.b.disabled && bg.count_locked(pred) < count {
 		bg.b.parkCond.Wait()
 	}
-	if bg.b.closed {
-		panic("xtesting: barrier is closed")
+	if bg.b.disabled {
+		panic("barrier is disabled")
 	}
 	released := 0
 	keepNextInd := 0
@@ -193,13 +203,19 @@ func (bg *barrierGuard) PassN(count int) {
 	bg.Pass(func([]any) bool { return true }, count)
 }
 
-func (bg *barrierGuard) Close() int {
+func (bg *barrierGuard) Disable() int {
 	bg.b.parkMu.Lock()
 	defer bg.b.parkMu.Unlock()
 	n := bg.flush_locked(func([]any) bool { return true })
-	bg.b.closed = true
+	bg.b.disabled = true
 	bg.b.parkCond.Broadcast()
 	return n
+}
+
+func (bg *barrierGuard) Enable() {
+	bg.b.parkMu.Lock()
+	defer bg.b.parkMu.Unlock()
+	bg.b.disabled = false
 }
 
 func (bg *barrierGuard) count_locked(pred func(tags []any) bool) int {
@@ -231,7 +247,7 @@ func (bg *barrierGuard) flush_locked(pred func(tags []any) bool) int {
 
 func validateTag(t any) error {
 	if t == nil || !reflect.TypeOf(t).Comparable() {
-		return fmt.Errorf("xtesting: park tag %v of type %T is not comparable", t, t)
+		return fmt.Errorf("park tag %v of type %T is not comparable", t, t)
 	}
 	return nil
 }
@@ -240,7 +256,7 @@ type barrier struct {
 	parkMu   sync.Mutex
 	parkCond *sync.Cond
 	waiters  []*waiter // FIFO order of arrival
-	closed   bool
+	disabled bool
 }
 
 type waiter struct {
