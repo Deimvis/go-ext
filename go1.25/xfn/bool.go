@@ -1,5 +1,13 @@
 package xfn
 
+func True() bool {
+	return true
+}
+
+func False() bool {
+	return false
+}
+
 func One2True[T any](T) bool {
 	return true
 }
