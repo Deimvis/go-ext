@@ -19,27 +19,21 @@ type Stack[CtxT Context] interface {
 	Invoke(CtxT) error
 	nextAt(StackInd) (next func(CtxT) (CtxT, error), nextCalls *atomic.Uint32)
 	// TODO: Reset(), Clone() ?
-
-	Debug() (StackDebug, bool)
 }
 
-func newStack[CtxT Context](mws []Middleware[CtxT], a Action[CtxT], erA EarlyReturnAction[CtxT], debugInfo bool) Stack[CtxT] {
+func newStack[CtxT Context](
+	mws []Middleware[CtxT],
+	a Action[CtxT],
+	erA EarlyReturnAction[CtxT],
+	obs Observer[CtxT],
+) Stack[CtxT] {
 	s := &stack[CtxT]{
 		mws: mws,
 		a:   a,
 		erA: erA,
-
-		debug: nil,
+		obs: obs,
 
 		ctxIsCopyable: xshould.TypeImplements[CtxT, CopyableContext[CtxT]]() == nil,
-	}
-	if debugInfo {
-		s.debug = &stackDebug{
-			[]execUnit{
-				{},
-			},
-		}
-		s.debug.execs[0].activeStackInd.Store(InvalidStackInd)
 	}
 	return s
 }
@@ -48,8 +42,7 @@ type stack[CtxT Context] struct {
 	mws []Middleware[CtxT]
 	a   Action[CtxT]
 	erA EarlyReturnAction[CtxT]
-
-	debug *stackDebug
+	obs Observer[CtxT]
 
 	ctxIsCopyable bool
 }
@@ -73,7 +66,7 @@ func (tcs *stack[CtxT]) Invoke(c CtxT) error {
 
 func (tcs *stack[CtxT]) nextAt(i StackInd) (func(CtxT) (CtxT, error), *atomic.Uint32) {
 	var calls atomic.Uint32
-	next := func(c CtxT) (CtxT, error) {
+	next := func(c CtxT) (retC CtxT, retErr error) {
 		if calls.Add(1) > 1 {
 			// TODO: allow multiple next calls, but
 			// 1) resolve issue with active stack ind
@@ -94,10 +87,20 @@ func (tcs *stack[CtxT]) nextAt(i StackInd) (func(CtxT) (CtxT, error), *atomic.Ui
 				panic(ErrNextAfterAbort)
 			}
 		}
-		if tcs.debug != nil {
-			tcs.debug.execs[0].activeStackInd.Store(i)
-			defer tcs.debug.execs[0].activeStackInd.Store(i - 1)
+
+		var frame *frameEvent[CtxT]
+		if tcs.obs != nil {
+			frame = &frameEvent[CtxT]{
+				execInd:  0,
+				stackInd: i,
+			}
+			tcs.obs.OnFrameEnter(frame)
+			defer func() {
+				frame.err = retErr
+				tcs.obs.OnFrameLeave(frame)
+			}()
 		}
+
 		var prevRt Runtime
 		if tcs.ctxIsCopyable {
 			prevRt = ctxCallerRuntime(c)
@@ -110,7 +113,11 @@ func (tcs *stack[CtxT]) nextAt(i StackInd) (func(CtxT) (CtxT, error), *atomic.Ui
 		if i < int64(len(tcs.mws)) {
 			next, nextCalls := tcs.nextAt(i + 1)
 			c, err = tcs.mws[i](c, next)
-			if nextCalls.Load() == 0 {
+			calledNext := nextCalls.Load() > 0
+			if frame != nil {
+				frame.calledNext = calledNext
+			}
+			if !calledNext {
 				// TODO: may be issue with force cancel middleware
 				// (e.g. when timeout middleware forcefully returns,
 				// but goroutine haven't started and therefore next call count
@@ -128,6 +135,9 @@ func (tcs *stack[CtxT]) nextAt(i StackInd) (func(CtxT) (CtxT, error), *atomic.Ui
 			}
 		} else if i == int64(len(tcs.mws)) {
 			err = tcs.a(c)
+			if frame != nil {
+				frame.calledNext = true
+			}
 		} else {
 			panic(ErrStackOverflow)
 		}
@@ -135,16 +145,10 @@ func (tcs *stack[CtxT]) nextAt(i StackInd) (func(CtxT) (CtxT, error), *atomic.Ui
 		if tcs.ctxIsCopyable {
 			c = tcs.injectRuntime(c, prevRt)
 		}
-		return c, err
+		retC, retErr = c, err
+		return
 	}
 	return next, &calls
-}
-
-func (tcs *stack[CtxT]) Debug() (StackDebug, bool) {
-	if tcs.debug != nil {
-		return tcs.debug, true
-	}
-	return nil, false
 }
 
 func (tcs *stack[CtxT]) injectRuntime(c CtxT, rt Runtime) CtxT {

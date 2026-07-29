@@ -17,23 +17,20 @@ type Builder[CtxT Context] interface {
 	OnEarlyReturnDo(EarlyReturnAction[CtxT]) Builder[CtxT]
 	Do(Action[CtxT]) Action[CtxT]
 
-	// ExportingDebugInfo allows to export debug info
-	// by filling value under given pointer.
-	// Given pointer value will be set
-	// after builder finishes (Do method).
-	ExportingDebugInfo(*Debug) Builder[CtxT]
-	// TODO: allow customize stack (OnStack(func(...) Stack)) (maybe someone would like to link middlewares directly and sacrifice transparency for performance)
-}
+	// ObservingEvents allows to observe events synchronously
+	// with call stack execution.
+	ObservingEvents(Observer[CtxT]) Builder[CtxT]
 
-type Debug interface {
-	StackDebug
+	// TODO: allow dynamically customize stack
+	// (OnStack(func(...) Stack))
+	// (maybe someone would like to link middlewares directly and sacrifice transparency for performance)
 }
 
 type builder[CtxT Context] struct {
-	mws   []Middleware[CtxT]
-	a     Action[CtxT]
-	erA   EarlyReturnAction[CtxT]
-	debug *Debug
+	mws []Middleware[CtxT]
+	a   Action[CtxT]
+	erA EarlyReturnAction[CtxT]
+	obs Observer[CtxT]
 }
 
 var _ Builder[context.Context] = (*builder[context.Context])(nil)
@@ -48,15 +45,14 @@ func (b *builder[CtxT]) OnEarlyReturnDo(erA EarlyReturnAction[CtxT]) Builder[Ctx
 	return b
 }
 
+func (b *builder[CtxT]) ObservingEvents(o Observer[CtxT]) Builder[CtxT] {
+	b.obs = o
+	return b
+}
+
 func (b *builder[CtxT]) Do(a Action[CtxT]) Action[CtxT] {
 	b.a = a
 	return b.build()
-}
-
-func (b *builder[CtxT]) ExportingDebugInfo(d *Debug) Builder[CtxT] {
-	xmust.NotNilPtr(d, "debug pointer is nil")
-	b.debug = d
-	return b
 }
 
 func (b *builder[CtxT]) build() Action[CtxT] {
@@ -64,12 +60,7 @@ func (b *builder[CtxT]) build() Action[CtxT] {
 	if b.erA == nil {
 		b.erA = earlyReturnAction_default[CtxT]
 	}
-	s := newStack(b.mws, b.a, b.erA, b.debug != nil)
-	if b.debug != nil {
-		d, ok := s.Debug()
-		xmust.True(ok, "stack returned no debug info")
-		(*b.debug) = d
-	}
+	s := newStack(b.mws, b.a, b.erA, b.obs)
 	return s.Invoke
 }
 

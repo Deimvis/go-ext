@@ -206,14 +206,6 @@ func TestNew(t *testing.T) {
 			_ = fn(context.Background())
 		})
 	})
-	t.Run("exporting-debug-info/non-nil", func(t *testing.T) {
-		var d Debug = nil
-		b := New[C]().
-			ExportingDebugInfo(&d)
-		require.Nil(t, d)
-		_ = b.Do(noopAction)
-		require.NotNil(t, d)
-	})
 	t.Run("abortable-ctx-smoke", func(t *testing.T) {
 		fn := func(c AbortableContext) error { return nil }
 		fn = New[AbortableContext]().Do(fn)
