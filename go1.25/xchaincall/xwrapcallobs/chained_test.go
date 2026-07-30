@@ -24,7 +24,7 @@ func (r *recordingObserver) OnFrameLeave(xwrapcall.FrameLeaveEvent[context.Conte
 
 func TestChained(t *testing.T) {
 	t.Run("empty/returns-noop", func(t *testing.T) {
-		obs := xwrapcallobs.Chained[context.Context]()
+		obs := xwrapcallobs.Chain[context.Context]()
 		fn := xwrapcall.New[context.Context]().
 			ObservingEvents(obs).
 			Do(func(c context.Context) error { return nil })
@@ -33,14 +33,14 @@ func TestChained(t *testing.T) {
 	})
 	t.Run("single/returns-it-directly", func(t *testing.T) {
 		obs1 := &recordingObserver{}
-		obs := xwrapcallobs.Chained[context.Context](obs1)
+		obs := xwrapcallobs.Chain[context.Context](obs1)
 		require.Same(t, obs1, obs)
 	})
 	t.Run("multiple/fans-out", func(t *testing.T) {
 		obs1 := &recordingObserver{}
 		obs2 := &recordingObserver{}
 		fn := xwrapcall.New[context.Context]().
-			ObservingEvents(xwrapcallobs.Chained(obs1, obs2)).
+			ObservingEvents(xwrapcallobs.Chain(obs1, obs2)).
 			Do(func(c context.Context) error { return nil })
 		err := fn(context.Background())
 		require.NoError(t, err)

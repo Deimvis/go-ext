@@ -17,6 +17,7 @@ type observerEvent[CtxT Context] struct {
 	stackInd   StackInd
 	err        error
 	calledNext bool
+	panicked   bool
 }
 
 func (r *recordingObserver[CtxT]) OnFrameEnter(info FrameEnterEvent[CtxT]) {
@@ -32,6 +33,7 @@ func (r *recordingObserver[CtxT]) OnFrameLeave(info FrameLeaveEvent[CtxT]) {
 		stackInd:   info.StackIndex(),
 		err:        info.Error(),
 		calledNext: info.CalledNext(),
+		panicked:   info.Panicked(),
 	})
 }
 
@@ -127,6 +129,52 @@ func TestObserver(t *testing.T) {
 		require.Len(t, obs.events, 2)
 		require.Equal(t, "enter", obs.events[0].kind)
 		require.Equal(t, "leave", obs.events[1].kind)
+		require.True(t, obs.events[1].panicked)
+	})
+	t.Run("mws/panic-marks-only-panicking-frame", func(t *testing.T) {
+		obs := &recordingObserver[Context]{}
+		passThrough := func(c Context, next Next[Context]) (Context, error) {
+			return next(c)
+		}
+		panicking := func(c Context, next Next[Context]) (Context, error) {
+			panic("boom")
+		}
+		fn := New[Context]().
+			With(passThrough, panicking).
+			ObservingEvents(obs).
+			Do(func(c Context) error { return nil })
+		require.Panics(t, func() {
+			_ = fn(context.Background())
+		})
+		leaves := []observerEvent[Context]{}
+		for _, e := range obs.events {
+			if e.kind == "leave" {
+				leaves = append(leaves, e)
+			}
+		}
+		require.Len(t, leaves, 2)
+		// Leave events fire ascending: index 1 (panicking) first, then index 0 (passThrough).
+		require.Equal(t, StackInd(1), leaves[0].stackInd)
+		require.True(t, leaves[0].panicked, "panicking frame should be marked panicked")
+		require.Equal(t, StackInd(0), leaves[1].stackInd)
+		require.True(t, leaves[1].panicked, "ancestor unwinding due to descendant panic should also be marked panicked")
+	})
+	t.Run("mws/normal-return-not-marked-panicked", func(t *testing.T) {
+		obs := &recordingObserver[Context]{}
+		passThrough := func(c Context, next Next[Context]) (Context, error) {
+			return next(c)
+		}
+		fn := New[Context]().
+			With(passThrough, passThrough).
+			ObservingEvents(obs).
+			Do(func(c Context) error { return nil })
+		err := fn(context.Background())
+		require.NoError(t, err)
+		for _, e := range obs.events {
+			if e.kind == "leave" {
+				require.False(t, e.panicked, "no frame should be marked panicked in normal return, ind=%d", e.stackInd)
+			}
+		}
 	})
 	t.Run("no-observer/no-panic", func(t *testing.T) {
 		fn := New[Context]().

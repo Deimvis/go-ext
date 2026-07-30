@@ -12,11 +12,11 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
-func TestCallStackInd_go125(t *testing.T) {
+func TestActiveFrame_go125(t *testing.T) {
 	type C = context.Context
 
 	t.Run("valid-active-stack-ind/no-mw", func(t *testing.T) {
-		obs, view := xwrapcallobs.NewCallStackInd[C]()
+		obs, view := xwrapcallobs.NewActiveFrame[C]()
 		taskStarted := make(chan struct{})
 		finishTask := make(chan struct{})
 		fn := xwrapcall.New[C]().
@@ -26,7 +26,7 @@ func TestCallStackInd_go125(t *testing.T) {
 				<-finishTask
 				return nil
 			})
-		_, ok := view.ActiveStackIndex(0)
+		_, ok := view.CallStackInd(0)
 		require.False(t, ok)
 
 		synctest.Test(t, func(t *testing.T) {
@@ -34,18 +34,18 @@ func TestCallStackInd_go125(t *testing.T) {
 				_ = fn(context.Background())
 			}()
 			<-taskStarted
-			aInd, ok := view.ActiveStackIndex(0)
+			aInd, ok := view.CallStackInd(0)
 			require.True(t, ok)
 			require.Equal(t, xwrapcall.StackInd(0), aInd)
 
 			close(finishTask)
 			synctest.Wait()
-			_, ok = view.ActiveStackIndex(0)
+			_, ok = view.CallStackInd(0)
 			require.False(t, ok)
 		})
 	})
 	t.Run("valid-active-stack-ind/1-mw", func(t *testing.T) {
-		obs, view := xwrapcallobs.NewCallStackInd[C]()
+		obs, view := xwrapcallobs.NewActiveFrame[C]()
 		mw1PreStarted := make(chan struct{})
 		mw1PreFinish := make(chan struct{})
 		mw1PostStarted := make(chan struct{})
@@ -69,7 +69,7 @@ func TestCallStackInd_go125(t *testing.T) {
 				<-finishTask
 				return nil
 			})
-		_, ok := view.ActiveStackIndex(0)
+		_, ok := view.CallStackInd(0)
 		require.False(t, ok)
 
 		synctest.Test(t, func(t *testing.T) {
@@ -79,30 +79,30 @@ func TestCallStackInd_go125(t *testing.T) {
 				_ = fn(context.Background())
 			}()
 			<-mw1PreStarted
-			aInd, ok = view.ActiveStackIndex(0)
+			aInd, ok = view.CallStackInd(0)
 			require.True(t, ok)
 			require.Equal(t, xwrapcall.StackInd(0), aInd)
 
 			close(mw1PreFinish)
 			<-taskStarted
-			aInd, ok = view.ActiveStackIndex(0)
+			aInd, ok = view.CallStackInd(0)
 			require.True(t, ok)
 			require.Equal(t, xwrapcall.StackInd(1), aInd)
 
 			close(finishTask)
 			<-mw1PostStarted
-			aInd, ok = view.ActiveStackIndex(0)
+			aInd, ok = view.CallStackInd(0)
 			require.True(t, ok)
 			require.Equal(t, xwrapcall.StackInd(0), aInd)
 
 			close(mw1PostFinish)
 			synctest.Wait()
-			_, ok = view.ActiveStackIndex(0)
+			_, ok = view.CallStackInd(0)
 			require.False(t, ok)
 		})
 	})
 	t.Run("valid-active-stack-ind/second-run", func(t *testing.T) {
-		obs, view := xwrapcallobs.NewCallStackInd[C]()
+		obs, view := xwrapcallobs.NewActiveFrame[C]()
 		taskStarted := make(chan struct{})
 		finishTask := make(chan struct{})
 		fn := xwrapcall.New[C]().
@@ -112,12 +112,12 @@ func TestCallStackInd_go125(t *testing.T) {
 				<-finishTask
 				return nil
 			})
-		_, ok := view.ActiveStackIndex(0)
+		_, ok := view.CallStackInd(0)
 		require.False(t, ok)
 
 		close(finishTask)
 		_ = fn(context.Background())
-		_, ok = view.ActiveStackIndex(0)
+		_, ok = view.CallStackInd(0)
 		require.False(t, ok)
 		taskStarted = make(chan struct{})
 		finishTask = make(chan struct{})
@@ -127,13 +127,13 @@ func TestCallStackInd_go125(t *testing.T) {
 				_ = fn(context.Background())
 			}()
 			<-taskStarted
-			aInd, ok := view.ActiveStackIndex(0)
+			aInd, ok := view.CallStackInd(0)
 			require.True(t, ok)
 			require.Equal(t, xwrapcall.StackInd(0), aInd)
 
 			close(finishTask)
 			synctest.Wait()
-			_, ok = view.ActiveStackIndex(0)
+			_, ok = view.CallStackInd(0)
 			require.False(t, ok)
 		})
 	})

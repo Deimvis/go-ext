@@ -112,7 +112,13 @@ func (tcs *stack[CtxT]) nextAt(i StackInd) (func(CtxT) (CtxT, error), *atomic.Ui
 		var err error
 		if i < int64(len(tcs.mws)) {
 			next, nextCalls := tcs.nextAt(i + 1)
+			if frame != nil {
+				frame.panicked = true
+			}
 			c, err = tcs.mws[i](c, next)
+			if frame != nil {
+				frame.panicked = false
+			}
 			calledNext := nextCalls.Load() > 0
 			if frame != nil {
 				frame.calledNext = calledNext
@@ -134,8 +140,12 @@ func (tcs *stack[CtxT]) nextAt(i StackInd) (func(CtxT) (CtxT, error), *atomic.Ui
 				c, err = tcs.erA(eai)
 			}
 		} else if i == int64(len(tcs.mws)) {
+			if frame != nil {
+				frame.panicked = true
+			}
 			err = tcs.a(c)
 			if frame != nil {
+				frame.panicked = false
 				frame.calledNext = true
 			}
 		} else {

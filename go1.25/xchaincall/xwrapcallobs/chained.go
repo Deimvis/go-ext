@@ -2,7 +2,7 @@ package xwrapcallobs
 
 import "github.com/Deimvis/go-ext/go1.25/xchaincall/xwrapcall"
 
-func Chained[CtxT xwrapcall.Context](observers ...xwrapcall.Observer[CtxT]) xwrapcall.Observer[CtxT] {
+func Chain[CtxT xwrapcall.Context](observers ...xwrapcall.Observer[CtxT]) xwrapcall.Observer[CtxT] {
 	if len(observers) == 0 {
 		return Noop[CtxT]()
 	}

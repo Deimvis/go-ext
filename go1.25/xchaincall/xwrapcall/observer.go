@@ -14,6 +14,7 @@ type FrameLeaveEvent[CtxT Context] interface {
 	FrameEnterEvent[CtxT]
 	Error() error
 	CalledNext() bool
+	Panicked() bool
 }
 
 type frameEvent[CtxT Context] struct {
@@ -22,6 +23,7 @@ type frameEvent[CtxT Context] struct {
 
 	err        error
 	calledNext bool
+	panicked   bool
 }
 
 var (
@@ -33,3 +35,4 @@ func (fi *frameEvent[CtxT]) ExecInd() uint64      { return fi.execInd }
 func (fi *frameEvent[CtxT]) StackIndex() StackInd { return fi.stackInd }
 func (fi *frameEvent[CtxT]) Error() error         { return fi.err }
 func (fi *frameEvent[CtxT]) CalledNext() bool     { return fi.calledNext }
+func (fi *frameEvent[CtxT]) Panicked() bool       { return fi.panicked }
