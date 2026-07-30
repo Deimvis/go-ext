@@ -71,7 +71,7 @@ func TestWaitAll(t *testing.T) {
 	})
 }
 
-func TestUntil(t *testing.T) {
+func TestWaitUntil(t *testing.T) {
 	t.Run("stops_when-stopfn-true", func(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) {
 			const blockers = 5
@@ -89,7 +89,7 @@ func TestUntil(t *testing.T) {
 				})
 			}
 
-			Until(
+			WaitUntil(
 				context.Background(),
 				func(*NoState) bool { return trigger.Load() >= 1 },
 				fns...,
@@ -111,7 +111,7 @@ func TestUntil(t *testing.T) {
 				}
 			}
 
-			Until(
+			WaitUntil(
 				context.Background(),
 				func(*NoState) bool { return false },
 				fns...,
@@ -123,7 +123,7 @@ func TestUntil(t *testing.T) {
 
 	t.Run("zero-functions", func(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) {
-			Until(context.Background(), func(*NoState) bool { return false })
+			WaitUntil(context.Background(), func(*NoState) bool { return false })
 		})
 	})
 
@@ -143,7 +143,7 @@ func TestUntil(t *testing.T) {
 				}
 			}
 
-			Until(ctx, func(*NoState) bool { return false }, fns...)
+			WaitUntil(ctx, func(*NoState) bool { return false }, fns...)
 
 			require.Equal(t, int32(n), ranCount.Load())
 		})
@@ -161,7 +161,7 @@ func TestUntil(t *testing.T) {
 				}
 			}
 
-			Until(
+			WaitUntil(
 				context.Background(),
 				func(*NoState) bool {
 					stopCallCount.Add(1)
@@ -176,7 +176,7 @@ func TestUntil(t *testing.T) {
 	})
 }
 
-func TestUntilFalse(t *testing.T) {
+func TestWaitUntilFalse(t *testing.T) {
 	t.Run("stops_on-first-false", func(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) {
 			const n = 8
@@ -195,7 +195,7 @@ func TestUntilFalse(t *testing.T) {
 				}
 			}
 
-			UntilFalse(context.Background(), fns...)
+			WaitUntilFalse(context.Background(), fns...)
 
 			require.Equal(t, int32(n), exited.Load())
 		})
@@ -214,7 +214,7 @@ func TestUntilFalse(t *testing.T) {
 				}
 			}
 
-			UntilFalse(context.Background(), fns...)
+			WaitUntilFalse(context.Background(), fns...)
 
 			require.Equal(t, int32(n), ran.Load())
 		})
@@ -241,7 +241,7 @@ func TestUntilFalse(t *testing.T) {
 				}
 			}
 
-			UntilFalse(context.Background(), fns...)
+			WaitUntilFalse(context.Background(), fns...)
 
 			require.Equal(t, int32(n), exited.Load())
 		})
@@ -249,7 +249,7 @@ func TestUntilFalse(t *testing.T) {
 
 	t.Run("zero-functions", func(t *testing.T) {
 		synctest.Test(t, func(t *testing.T) {
-			UntilFalse(context.Background())
+			WaitUntilFalse(context.Background())
 		})
 	})
 
@@ -270,7 +270,7 @@ func TestUntilFalse(t *testing.T) {
 				}
 			}
 
-			UntilFalse(ctx, fns...)
+			WaitUntilFalse(ctx, fns...)
 
 			require.Equal(t, int32(n), exited.Load())
 		})

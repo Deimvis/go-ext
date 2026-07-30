@@ -20,7 +20,7 @@ func WaitAll(fns ...func()) {
 	wg.Wait()
 }
 
-func UntilFalse(
+func WaitUntilFalse(
 	ctx context.Context,
 	fns ...func(context.Context) bool,
 ) {
@@ -35,7 +35,7 @@ func UntilFalse(
 			}
 		},
 	)
-	Until(
+	WaitUntil(
 		ctx,
 		func(s *failCountState) bool {
 			return s.fails.Load() > 0
@@ -44,7 +44,7 @@ func UntilFalse(
 	)
 }
 
-func Until[State any](
+func WaitUntil[State any](
 	ctx context.Context,
 	stopFn func(*State) bool,
 	fns ...func(context.Context, *State),
