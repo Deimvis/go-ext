@@ -10,6 +10,13 @@ func ValueWithOk[U any](opt T[U]) (U, bool) {
 	return v, false
 }
 
+func FromValueWithOk[U any](v U, ok bool) T[U] {
+	if !ok {
+		return T[U]{}
+	}
+	return New(v)
+}
+
 // TODO: duplicate to xoptionalfb.OnEmpty
 func ValueOr[U any](opt T[U], fb U) U {
 	if opt.HasValue() {
